@@ -9,6 +9,7 @@ describe("postgresql", () => {
   let pgp;
 
   before(async function () {
+    // TODO: usePostgres() test hook
     const mochaContext = this;
     mochaContext.timeout(120_000);
     container = await new GenericContainer("postgres")
