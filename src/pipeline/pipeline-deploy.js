@@ -9,14 +9,15 @@ const { QueryFile } = require('pg-promise');
 const pgPromiseLib = require("pg-promise");
 const glob = promisify(require('glob'));
 
-const { connectDb, provisionDb } = require('../lib/db');
+const { connectDb } = require('../lib/db');
+const { recreateDb, migrate } = require('./lib/pipeline-db');
 
 const runProduction = async ({ version }) => {
   let pgContainer;
   let pgPromise;
   try {
     // recreate production db
-    pgContainer = await recreateProductionDb({ version });
+    pgContainer = await recreateDb({ version });
 
     // connect to db
     pgPromise = pgPromiseLib();
@@ -24,38 +25,23 @@ const runProduction = async ({ version }) => {
 
     // run migration V
     await migrate({ db, version });
-    console.log(`(${db.$cn.database} migrated to schema@${version})`)
+    console.log(`(Migrated "${db.$cn.database}" db to schema@${version})`)
     // run app V-1
     // run transactions V
-    await applyTransactions({ db, version })
-    console.log(`(${db.$cn.database} updated with new transactions)`)
+    await applyProductionTransactions({ db, version })
+    console.log(`(Updated "${db.$cn.database}" db with new transactions)`)
     // run app V
     console.log(`(Output from app@${version})`)
     await runApp({ version })
   } finally {
     // disconnect from db
     if (pgPromise) pgPromise.end();
-    // destroy test db
+    // destroy db
     if (pgContainer) await pgContainer.stop();
   }
 }
 
-const recreateProductionDb = async ({ version }) => {
-  const pgContainer = provisionDb();
-
-  // for v < V
-  //    run migration v
-  //    run prod transactions v
-  return pgContainer;
-}
-
-const migrate = async ({ db, version }) => {
-  const [migrationPath] = await glob(`src/schema/${version}-*-do.sql`, { absolute: true })
-  const migrationFile = new QueryFile(migrationPath);
-  await db.none(migrationFile);
-}
-
-const applyTransactions = async ({ db, version }) => {
+const applyProductionTransactions = async ({ db, version }) => {
   const [transactionPath] = await glob(`src/data/prod/${version}-*.sql`, { absolute: true })
   const transactionFile = new QueryFile(transactionPath);
   await db.none(transactionFile);

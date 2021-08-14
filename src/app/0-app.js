@@ -6,7 +6,7 @@ const main = async () => {
   try {
     pgPromise = pgPromiseLib();
     const db = connectDb({ pgPromise })
-    console.log(`Users in ${db.$cn.database}`)
+    console.log(`Users in "${db.$cn.database}" db`)
     console.log(await db.many('select * from "user"'))
   } finally {
     if (pgPromise) pgPromise.end();
