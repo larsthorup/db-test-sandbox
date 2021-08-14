@@ -7,10 +7,11 @@ const main = async () => {
     pgPromise = pgPromiseLib();
     const db = connectDb({ pgPromise })
     console.log(`Users in "${db.$cn.database}" db`)
-    console.log(await db.many('select * from "user"'))
+    const userList = await db.many('select * from "user" order by "email"');
+    console.log(userList.map(u => u.email).join('\n'));
   } finally {
     if (pgPromise) pgPromise.end();
   }
 }
 
-main().catch(console.error);
+main().catch((err) => { console.error(err); process.exit(1); })

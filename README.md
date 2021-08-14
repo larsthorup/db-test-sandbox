@@ -1,6 +1,6 @@
 # db-test-sandbox
 
-Experiments in database migration testing.
+Experiments in database migration testing. Optimized for educational value, not production quality.
 
 Prerequisites:
 
@@ -9,7 +9,7 @@ Prerequisites:
 
 ```
 npm install
-npx mocha
+npm run mocha:container
 npm test
 ```
 

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
+    "mocha:container": "mocha --config src/container/.mocharc.js",
     "test": "node src/pipeline/pipeline 0"
   },
   "repository": {

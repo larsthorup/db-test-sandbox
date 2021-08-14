@@ -53,6 +53,5 @@ const runApp = async ({ version }) => {
   console.log(stdout);
 }
 
-module.exports = {
-  runProduction
-}
+const version = parseInt(process.argv[2]);
+runProduction({ version }).catch((err) => { console.error(err); process.exit(1); })

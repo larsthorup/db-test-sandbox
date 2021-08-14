@@ -19,7 +19,7 @@ const runTest = async ({ version }) => {
   await testMigration({ version });
 }
 
-const testApp = async ({ version }) => { // TODO
+const testApp = async ({ version }) => {
   let pgContainer;
   let pgPromise;
   try {
@@ -38,8 +38,8 @@ const testApp = async ({ version }) => { // TODO
     // load test data 
     await loadTestData({ db, version });
 
-    // run app test V
-    await runMocha({ db, version });
+    // run app test
+    await runMochaTest({ db, version });
 
     console.log(`(Tested app@${version})`)
   } finally {
@@ -82,12 +82,10 @@ const loadTestData = async ({ db, version }) => {
   await db.none(testDataFile);
 }
 
-const runMocha = async ({ db, version }) => { // TODO
-  const userList = await db.many('select * from "user" order by "email"');
-  assert.strictEqual(userList.length, 3);
-  assert.strictEqual(userList[0].email, "adm@example.com");
+const runMochaTest = async ({ db, version }) => {
+  const [testPath] = await glob(`src/app/${version}-*.test.js`, { absolute: true })
+  await exec(`mocha ${testPath}`);
 }
 
-module.exports = {
-  runTest
-}
+const version = parseInt(process.argv[2]);
+runTest({ version }).catch((err) => { console.error(err); process.exit(1); })

@@ -1,11 +1,24 @@
-const { runProduction } = require('./pipeline-deploy');
-const { runTest } = require('./pipeline-test');
+const childProcessLib = require('child_process');
+const { promisify } = require('util');
 
-const version = parseInt(process.argv[2]);
+const spawn = async (command, args) => {
+  return new Promise((resolve, reject) => {
+    const process = childProcessLib.spawn(command, args, { stdio: 'inherit' });
+    process.on('error', reject);
+    process.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`Command "${command}" failed with exit code ${code}`))
+      }
+    });
+  })
+};
 
-const main = async ({ version }) => {
-  await runTest({ version });
-  await runProduction({ version });
+const pipeline = async ({ version }) => {
+  await spawn('node', ['src/pipeline/pipeline-test', version]);
+  await spawn('node', ['src/pipeline/pipeline-deploy', version]);
 }
 
-main({ version }).catch(console.error)
+const version = parseInt(process.argv[2]);
+pipeline({ version }).catch((err) => { console.error(err); process.exit(1); })
