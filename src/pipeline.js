@@ -1,17 +1,35 @@
 require('dotenv').config({ path: '.env.test' });
 
-const { promisify } = require('util');
+const childProcessLib = require('child_process');
 const path = require('path');
+const { promisify } = require('util');
+const exec = promisify(childProcessLib.exec);
 
 const { QueryFile } = require('pg-promise');
 const pgPromiseLib = require("pg-promise");
 const { PostgreSqlContainer } = require("testcontainers");
 const glob = promisify(require('glob'));
 
-const version = "0"; // TODO: pass in
+const { connectDb } = require('./db');
+
+const version = parseInt(process.argv[2]);
 
 const main = async ({ version }) => {
+  await runTest({ version });
   await runProduction({ version });
+}
+
+const runTest = async ({ version }) => {
+  await runTestOnTestData({ version });
+  await runTestOnProductionData({ version });
+}
+
+const runTestOnTestData = async ({ version }) => {
+
+}
+
+const runTestOnProductionData = async ({ version }) => {
+
 }
 
 const runProduction = async ({ version }) => {
@@ -24,47 +42,50 @@ const runProduction = async ({ version }) => {
       .withUsername(process.env.POSTGRES_USER)
       .withPassword(process.env.POSTGRES_PASSWORD)
       .start()
+    process.env.POSTGRES_HOST = pgContainer.getHost();
+    process.env.POSTGRES_PORT = pgContainer.getPort();
+    // connect to db
     pgPromise = pgPromiseLib();
-    const db = pgPromise({
-      host: pgContainer.getHost(),
-      port: pgContainer.getPort(),
-      database: pgContainer.getDatabase(),
-      user: pgContainer.getUsername(),
-      password: pgContainer.getPassword(),
-    });
+    const db = connectDb({ pgPromise })
 
     // for v < V
     //    run migration v
     //    run prod transactions v
 
     // run migration V
-    await runMigration({ db, version });
+    await migrate({ db, version });
+    console.log(`(Production db migrated to schema@${version})`)
     // run app V-1
     // run transactions V
-    await runTransactions({ db, version })
+    await applyTransactions({ db, version })
+    console.log(`(Production transactions applied)`)
     // run app V
+    console.log(`(Output from app@${version})`)
     await runApp({ db, version })
   } finally {
-    // destroy test db
+    // disconnect from db
     if (pgPromise) pgPromise.end();
+    // destroy test db
     if (pgContainer) await pgContainer.stop();
   }
 }
 
-const runMigration = async ({ db, version }) => {
+const migrate = async ({ db, version }) => {
   const [migrationPath] = await glob(`src/schema/${version}-*-do.sql`, { absolute: true })
   const migrationFile = new QueryFile(migrationPath);
   await db.none(migrationFile);
 }
 
-const runTransactions = async ({ db, version }) => {
+const applyTransactions = async ({ db, version }) => {
   const [transactionPath] = await glob(`src/data/prod/${version}-*.sql`, { absolute: true })
   const transactionFile = new QueryFile(transactionPath);
   await db.none(transactionFile);
 }
 
 const runApp = async ({ db, version }) => {
-  console.log(await db.many('select * from "user"'))
+  const [appPath] = await glob(`src/app/${version}-*.js`, { absolute: true, ignore: '*.test.js' })
+  const { stdout } = await exec(`node ${appPath}`);
+  console.log(stdout);
 }
 
 // test with test data and app tests

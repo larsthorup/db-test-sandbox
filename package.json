@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "test": "node src/pipeline"
+    "test": "node src/pipeline 0"
   },
   "repository": {
     "type": "git",
