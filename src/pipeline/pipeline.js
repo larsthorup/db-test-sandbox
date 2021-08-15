@@ -9,7 +9,7 @@ const spawn = async (command, args) => {
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`Command "${command}" failed with exit code ${code}`))
+        reject(new Error(`Command "${command} ${args.join(' ')}" failed with exit code ${code}`))
       }
     });
   })
@@ -21,4 +21,4 @@ const pipeline = async ({ version }) => {
 }
 
 const version = parseInt(process.argv[2]);
-pipeline({ version }).catch((err) => { console.error(err); process.exit(1); })
+pipeline({ version }).catch((err) => { console.error(err.stack); process.exit(1); })

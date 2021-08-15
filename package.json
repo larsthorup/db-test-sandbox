@@ -3,8 +3,10 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
+    "0": "node src/pipeline/pipeline 0",
+    "1": "node src/pipeline/pipeline 1",
     "mocha:container": "mocha --config src/container/.mocharc.js",
-    "test": "node src/pipeline/pipeline 0"
+    "test": "npm run 0 && npm run 1"
   },
   "repository": {
     "type": "git",

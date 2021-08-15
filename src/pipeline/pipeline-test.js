@@ -11,7 +11,7 @@ const pgpLib = require("pg-promise");
 const glob = promisify(require('glob'));
 
 const { connectDb, provisionDb } = require('../lib/db');
-const { migrate } = require('./lib/pipeline-db');
+const { migrate, recreateProductionDb } = require('./lib/pipeline-db');
 const { expect } = require('chai');
 
 const runTest = async ({ version }) => {
@@ -40,7 +40,6 @@ const testApp = async ({ version }) => {
 
     // run app test
     await runAppTest({ db, version });
-
     console.log(`(Tested app@${version})`)
   } finally {
     // disconnect from db
@@ -71,16 +70,24 @@ const testMigrationOnTestData = async ({ version }) => {
       await migrate({ db, version: v });
     }
 
-    // TODO load test data V-1 
+    // load test data V-1 
+    if (version > 0) {
+      await loadTestData({ db, version: version - 1 });
+    }
+
     // migrate to version
     await migrate({ db, version });
 
     // run migration test V
     await runMigrationTest({ db, version });
 
-    // TODO: run app test V-1
+    // run app test V-1
+    if (version > 0) {
+      await runAppTest({ db, version: version - 1 });
+    }
 
-    console.log(`(Tested migration@${version})`)
+    console.log(`(Tested migration@${version} on test data)`)
+
   } finally {
     // disconnect from db
     if (pgp) pgp.end();
@@ -89,31 +96,73 @@ const testMigrationOnTestData = async ({ version }) => {
   }
 }
 
-const testMigrationOnProductionData = async ({ version }) => { // TODO
-  // create test db
-  // for v < V
-  //   migrate v
-  //   apply prod transactions v
-  // migrate V
-  // run migration test V
-  // destroy db
+const testMigrationOnProductionData = async ({ version }) => {
+  let pgContainer;
+  let pgp;
+  if (version > 0) {
+    try {
+      // create test db
+      pgContainer = await provisionDb({ version });
+
+      // connect to db
+      pgp = pgpLib();
+      const db = connectDb({ pgp })
+
+      // recreate production db to previous version
+      await recreateProductionDb({ db, version: version - 1 });
+
+      // migrate to version
+      await migrate({ db, version });
+
+      // run migration test V
+      await runMigrationTest({ db, version });
+
+      console.log(`(Tested migration@${version} on copy of production data)`)
+
+    } finally {
+      // disconnect from db
+      if (pgp) pgp.end();
+      // destroy test db
+      if (pgContainer) await pgContainer.stop();
+    }
+  }
 }
 
 const loadTestData = async ({ db, version }) => {
-  const [testDataPath] = await glob(`src/data/test/${version}-*.sql`, { absolute: true })
-  const testDataFile = new QueryFile(testDataPath);
-  await db.none(testDataFile);
+  const testDataGlob = `src/data/test/${version}-*.sql`;
+  const [testDataPath] = await glob(testDataGlob, { absolute: true })
+  if (testDataPath) {
+    const testDataFile = new QueryFile(testDataPath);
+    await db.none(testDataFile);
+  } else {
+    console.log(`(No test data found at "${testDataGlob}")`);
+  }
 }
 
 const runAppTest = async ({ db, version }) => {
-  const [testPath] = await glob(`src/app/${version}-*.test.js`, { absolute: true })
-  await exec(`mocha ${testPath}`);
+  const testGlob = `src/app/${version}-*.test.js`;
+  const [testPath] = await glob(testGlob, { absolute: true });
+  if (testPath) {
+    await exec(`mocha ${testPath}`);
+  } else {
+    console.log(`(No app test found at "${testGlob}")`);
+  }
 }
 
 const runMigrationTest = async ({ db, version }) => {
-  const [testPath] = await glob(`src/schema/${version}-*-do.test.js`, { absolute: true })
-  await exec(`mocha ${testPath}`);
+  try {
+    const testGlob = `src/schema/${version}-*-do.test.js`;
+    const [testPath] = await glob(testGlob, { absolute: true })
+    if (testPath) {
+      await exec(`mocha ${testPath}`);
+    } else {
+      console.log(`(No migration test found at "${testGlob}")`);
+    }
+  } catch (err) {
+    console.error(err);
+    throw new Error(`Failed to run migration test for version ${version}`)
+  }
 }
 
 const version = parseInt(process.argv[2]);
-runTest({ version }).catch((err) => { console.error(err); process.exit(1); })
+runTest({ version }).catch((err) => { console.error(err.stack); process.exit(1); })
