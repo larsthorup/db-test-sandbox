@@ -16,7 +16,7 @@ const migrate = async ({ db, version }) => {
   await db.none(migrationFile);
 }
 
-const recreateDb = async ({ version }) => {
+const recreateProductionDb = async ({ version }) => {
   const pgContainer = provisionDb();
 
   // for v < V
@@ -27,5 +27,5 @@ const recreateDb = async ({ version }) => {
 
 module.exports = {
   migrate,
-  recreateDb
+  recreateProductionDb
 }

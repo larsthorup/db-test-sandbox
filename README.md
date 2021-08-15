@@ -15,8 +15,6 @@ npm test
 
 Todo
 
-- version 0 (users)
-  - migration, test, migrate, app, transactions, run
 - version 1 (isadmin)
   - migration, test, migrate, run, app, transactions, run
 - version 2 (unique email)

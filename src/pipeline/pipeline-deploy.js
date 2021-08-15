@@ -6,22 +6,22 @@ const { promisify } = require('util');
 const exec = promisify(childProcessLib.exec);
 
 const { QueryFile } = require('pg-promise');
-const pgPromiseLib = require("pg-promise");
+const pgpLib = require("pg-promise");
 const glob = promisify(require('glob'));
 
 const { connectDb } = require('../lib/db');
-const { recreateDb, migrate } = require('./lib/pipeline-db');
+const { recreateProductionDb, migrate } = require('./lib/pipeline-db');
 
 const runProduction = async ({ version }) => {
   let pgContainer;
-  let pgPromise;
+  let pgp;
   try {
     // recreate production db
-    pgContainer = await recreateDb({ version });
+    pgContainer = await recreateProductionDb({ version });
 
     // connect to db
-    pgPromise = pgPromiseLib();
-    const db = connectDb({ pgPromise })
+    pgp = pgpLib();
+    const db = connectDb({ pgp })
 
     // run migration V
     await migrate({ db, version });
@@ -35,7 +35,7 @@ const runProduction = async ({ version }) => {
     await runApp({ version })
   } finally {
     // disconnect from db
-    if (pgPromise) pgPromise.end();
+    if (pgp) pgp.end();
     // destroy db
     if (pgContainer) await pgContainer.stop();
   }

@@ -1,16 +1,16 @@
-const pgPromiseLib = require("pg-promise");
+const pgpLib = require("pg-promise");
 const { connectDb } = require('../lib/db');
 
 const main = async () => {
-  let pgPromise;
+  let pgp;
   try {
-    pgPromise = pgPromiseLib();
-    const db = connectDb({ pgPromise })
+    pgp = pgpLib();
+    const db = connectDb({ pgp })
     console.log(`Users in "${db.$cn.database}" db`)
     const userList = await db.many('select * from "user" order by "email"');
     console.log(userList.map(u => u.email).join('\n'));
   } finally {
-    if (pgPromise) pgPromise.end();
+    if (pgp) pgp.end();
   }
 }
 
