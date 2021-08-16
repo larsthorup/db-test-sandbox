@@ -12,7 +12,7 @@ const glob = promisify(require('glob'));
 const { connectDb, provisionDb } = require('../lib/db');
 const { recreateProductionDb, migrate, applyProductionTransactions } = require('./lib/pipeline-db');
 
-const runProduction = async ({ version }) => {
+const runDeploy = async ({ version }) => {
   let pgContainer;
   let pgp;
   try {
@@ -22,6 +22,20 @@ const runProduction = async ({ version }) => {
     pgp = pgpLib();
     const db = connectDb({ pgp })
 
+    await deploySchema({ db, version });
+    await deployApp({ db, version });
+
+  } finally {
+    // disconnect from db
+    if (pgp) pgp.end();
+    // destroy db
+    if (pgContainer) await pgContainer.stop();
+  }
+}
+
+const deploySchema = async ({ db, version }) => {
+  console.group(`Deploying schema@${version}`)
+  try {
     // recreate production db to previous version
     if (version > 0) {
       await recreateProductionDb({ db, version: version - 1 });
@@ -35,28 +49,32 @@ const runProduction = async ({ version }) => {
     if (version > 0) {
       await runApp({ db, version: version - 1 })
     }
+  } finally {
+    console.groupEnd();
+  }
+}
 
+const deployApp = async ({ db, version }) => {
+  console.group(`Deploying app@${version}`)
+  try {
     // run transactions V
     await applyProductionTransactions({ db, version })
     console.log(`(Updated "${db.$cn.database}" db with transactions@${version})`)
 
     // run app V
     await runApp({ version })
-
   } finally {
-    // disconnect from db
-    if (pgp) pgp.end();
-    // destroy db
-    if (pgContainer) await pgContainer.stop();
+    console.groupEnd();
   }
 }
 
 const runApp = async ({ version }) => {
   const [appPath] = await glob(`src/app/${version}-*.js`, { absolute: true, ignore: '*.test.js' })
   const { stdout } = await exec(`node ${appPath}`);
-  console.log(`(Output from app@${version})`)
+  console.group(`Running app@${version}`)
   console.log(stdout);
+  console.groupEnd();
 }
 
 const version = parseInt(process.argv[2]);
-runProduction({ version }).catch((err) => { console.error(err.stack); process.exit(1); })
+runDeploy({ version }).catch((err) => { console.error(err.stack); process.exit(1); })

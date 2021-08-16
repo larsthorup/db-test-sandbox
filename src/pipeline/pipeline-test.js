@@ -18,13 +18,19 @@ const { expect } = require('chai');
 const debugContainer = Boolean(process.env.DEBUG_CONTAINER);
 
 const runTest = async ({ version }) => {
-  await testApp({ version });
-  await testMigration({ version });
+  console.group(`Testing version "${version}"`)
+  try {
+    await testApp({ version });
+    await testMigration({ version });
+  } finally {
+    console.groupEnd();
+  }
 }
 
 const testApp = async ({ version }) => {
   let pgContainer;
   let pgp;
+  console.group(`(testing app@${version})`)
   try {
     // create test db
     pgContainer = await provisionDb({ version });
@@ -43,8 +49,8 @@ const testApp = async ({ version }) => {
 
     // run app test
     await runAppTest({ db, version });
-    console.log(`(Tested app@${version})`)
   } finally {
+    console.groupEnd();
     // disconnect from db
     if (pgp) pgp.end();
     // destroy test db
@@ -60,6 +66,7 @@ const testMigration = async ({ version }) => {
 const testMigrationOnTestData = async ({ version }) => {
   let pgContainer;
   let pgp;
+  console.group(`(testing migration@${version} on test data)`)
   try {
     // create test db
     pgContainer = await provisionDb({ version });
@@ -89,9 +96,8 @@ const testMigrationOnTestData = async ({ version }) => {
       await runAppTest({ db, version: version - 1 });
     }
 
-    console.log(`(Tested migration@${version} on test data)`)
-
   } finally {
+    console.groupEnd();
     // disconnect from db
     if (pgp) pgp.end();
     // destroy test db
@@ -103,6 +109,7 @@ const testMigrationOnProductionData = async ({ version }) => {
   let pgContainer;
   let pgp;
   if (version > 0) {
+    console.group(`(testing migration@${version} on production data)`)
     try {
       // create test db
       pgContainer = await provisionDb({ version });
@@ -120,8 +127,6 @@ const testMigrationOnProductionData = async ({ version }) => {
       // run migration test V
       await runMigrationTest({ db, version });
 
-      console.log(`(Tested migration@${version} on copy of production data)`)
-
     } finally {
       if (debugContainer) {
         console.log('----- Entering psql on container to debug.');
@@ -130,6 +135,7 @@ const testMigrationOnProductionData = async ({ version }) => {
         spawnSync('docker', ['exec', '-it', pgContainer.getName(), 'psql', pgContainer.getDatabase(), pgContainer.getUsername()], { stdio: 'inherit' });
         console.log('-----');
       }
+      console.groupEnd();
       // disconnect from db
       if (pgp) pgp.end();
       // destroy test db
