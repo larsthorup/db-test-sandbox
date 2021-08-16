@@ -5,6 +5,7 @@
   "scripts": {
     "0": "node src/pipeline/pipeline 0",
     "1": "node src/pipeline/pipeline 1",
+    "2": "node src/pipeline/pipeline 2",
     "mocha:container": "mocha --config src/container/.mocharc.js",
     "test": "npm run 0 && npm run 1"
   },

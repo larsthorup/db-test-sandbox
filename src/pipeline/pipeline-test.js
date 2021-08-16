@@ -5,6 +5,7 @@ const childProcessLib = require('child_process');
 const path = require('path');
 const { promisify } = require('util');
 const exec = promisify(childProcessLib.exec);
+const { spawnSync } = childProcessLib;
 
 const { QueryFile } = require('pg-promise');
 const pgpLib = require("pg-promise");
@@ -13,6 +14,8 @@ const glob = promisify(require('glob'));
 const { connectDb, provisionDb } = require('../lib/db');
 const { migrate, recreateProductionDb } = require('./lib/pipeline-db');
 const { expect } = require('chai');
+
+const debugContainer = Boolean(process.env.DEBUG_CONTAINER);
 
 const runTest = async ({ version }) => {
   await testApp({ version });
@@ -120,6 +123,13 @@ const testMigrationOnProductionData = async ({ version }) => {
       console.log(`(Tested migration@${version} on copy of production data)`)
 
     } finally {
+      if (debugContainer) {
+        console.log('----- Entering psql on container to debug.');
+        console.log(`jdbc:postgresql://${pgContainer.getHost()}:${pgContainer.getMappedPort(5432)}/${pgContainer.getDatabase()}?user=${pgContainer.getUsername()}&password=${pgContainer.getPassword()}`);
+        console.log('----- Type ctrl-d to exit.')
+        spawnSync('docker', ['exec', '-it', pgContainer.getName(), 'psql', pgContainer.getDatabase(), pgContainer.getUsername()], { stdio: 'inherit' });
+        console.log('-----');
+      }
       // disconnect from db
       if (pgp) pgp.end();
       // destroy test db

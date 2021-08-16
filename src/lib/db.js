@@ -17,6 +17,7 @@ const provisionDb = async () => {
     .start()
   process.env.POSTGRES_HOST = pgContainer.getHost();
   process.env.POSTGRES_PORT = pgContainer.getPort();
+  return pgContainer;
 }
 
 module.exports = {
